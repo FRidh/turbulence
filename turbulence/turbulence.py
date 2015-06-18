@@ -46,14 +46,15 @@ class Spectrum(object, metaclass=abc.ABCMeta):
     
     #_required_attributes = ['x', 'y', 'z', 'wavenumber_resolution', 'spatial_resolution', 'max_mode_order']
     _required_attributes = ['wavenumber_resolution', 'max_mode_order']
+    #_required_attributes = []
     
-    def _construct(self, attributes, *args, **kwargs):
-        for attr in attributes:
-            try:
-                setattr(self, attr, kwargs[attr])
-            except KeyError:
-                raise ValueError(attr)
-                #raise ValueError("Requires " + attr + ".")
+    #def _construct(self, attributes, *args, **kwargs):
+        #for attr in attributes:
+            #try:
+                #setattr(self, attr, kwargs[attr])
+            #except KeyError:
+                #raise ValueError(attr)
+                ##raise ValueError("Requires " + attr + ".")
         
     def __init__(self, *args, **kwargs):
         
@@ -61,18 +62,37 @@ class Spectrum(object, metaclass=abc.ABCMeta):
         """
         Length of the field in each direction.
         """
-        
-        missing = list()
+        required_attributes = list()
         
         for cls in reversed(self.__class__.__mro__):
             try:
-                self._construct(getattr(cls, '_required_attributes'), args, **kwargs)
-            except AttributeError as error:
+                required_attributes += cls._required_attributes
+            except AttributeError:
                 pass
-            except ValueError as error:
-                missing.append(str(error))
+        
+        missing = list()
+        
+        for attr in set(required_attributes):
+            try:
+                setattr(self, attr, kwargs.pop(attr))
+            except KeyError:
+                missing.append(attr)
+        
         if missing:
-            raise ValueError("Missing arguments: " + str(set(missing)))
+            raise ValueError("Missing parameters: " + str(set(missing)))
+        
+        if kwargs:
+            raise ValueError("Unknown parameters: " + str(kwargs.keys()))
+        
+        #for cls in reversed(self.__class__.__mro__):
+            #try:
+                #self._construct(getattr(cls, '_required_attributes'), args, **kwargs)
+            #except AttributeError as error:
+                #pass
+            #except ValueError as error:
+                #missing.append(str(error))
+        #if missing:
+            #raise ValueError("Missing arguments: " + str(set(missing)))
         
     @property
     def modes(self):
@@ -160,10 +180,7 @@ class Spectrum2D(Spectrum, metaclass=abc.ABCMeta):
         #Spectrum.__init__(self, wavenumber, max_mode_order)
 
     _max_mode_order = None
-    
-    _required_attributes = ['plane']
-    
-    
+        
     @property
     def wavenumber_resolution(self):
         return self._wavenumber_resolution
@@ -227,9 +244,8 @@ class Spectrum2D(Spectrum, metaclass=abc.ABCMeta):
         return self
     
     
-    def plot_mode_amplitudes(self, filename=None):
-        """
-        Calculate and plot mode amplitudes.
+    def plot_mode_amplitudes(self):
+        """Calculate and plot mode amplitudes.
         """
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -241,21 +257,16 @@ class Spectrum2D(Spectrum, metaclass=abc.ABCMeta):
         ax.grid()
         ax.set_title('Mode amplitude as function of wavenumber')
         
-        if filename:
-            fig.savefig(filename)
-        else:
-            fig.show()
+        return fig
 
     
     def plot_structure(self):
+        """Plot the structure function.
         """
-        Plot the structure function.
-        """
-        pass
+        raise NotImplementedError
     
-    def plot_spectral_density(self, filename=None):
-        """
-        Plot the spectral density.
+    def plot_spectral_density(self):
+        """Plot the spectral density.
         """
 
         fig = plt.figure()
@@ -267,12 +278,8 @@ class Spectrum2D(Spectrum, metaclass=abc.ABCMeta):
         ax.grid()
         ax.set_title('Spectral density as function of wavenumber')
         
-        
-        if filename:
-            fig.savefig(filename)
-        else:
-            fig.show()
-        
+        return fig
+    
         
 class Spectrum3D(Spectrum, metaclass=abc.ABCMeta):
     """
@@ -452,7 +459,7 @@ class GaussianTempWind(object, metaclass=abc.ABCMeta):
     Abstract class for Gaussian spectrum when both temperature and wind fluctuations are considered.
     """
     
-    _required_attributes = ['a', 'sigma_T', 'T_0', 'sigma_nu', 'c_0']
+    _required_attributes = ['plane', 'a', 'sigma_T', 'T_0', 'sigma_nu', 'c_0']
     
     
     a = None
@@ -518,7 +525,7 @@ class VonKarmanTempWind(object, metaclass=abc.ABCMeta):
     Abstract class for Von Karman spectrum when both temperature and wind fluctuations are considered.
     """
     
-    _required_attributes = ['c_0', 'T_0', 'C_v', 'C_T', 'L']
+    _required_attributes = ['plane', 'c_0', 'T_0', 'C_v', 'C_T', 'L']
 
     CONSTANT_A = 5.0 / (18.0 * np.pi * gamma(1.0/3.0))
     """
@@ -824,9 +831,8 @@ class Comparison(object):
         Turbulence spectra.
         """
     
-    def plot_mode_amplitudes(self, filename=None):
-        """
-        Create a plot of the mode amplitudes for all turbulence spectra.
+    def plot_mode_amplitudes(self):
+        """Create a plot of the mode amplitudes for all turbulence spectra.
         """
         
         fig = plt.figure()
@@ -840,14 +846,10 @@ class Comparison(object):
         ax.set_ylabel(r'$G$')
         ax.grid()
         
-        if filename:
-            fig.savefig(filename)
-        else:
-            fig.show()
+        return fig
 
     
-    
-    def plot_spectral_density(self, filename=None):
+    def plot_spectral_density(self):
         """
         Plot the spectral density.
         """
@@ -864,10 +866,7 @@ class Comparison(object):
         ax.grid()
         ax.legend()
         
-        if filename:
-            fig.savefig(filename)
-        else:
-            fig.show()
+        return fig
     
 
 def _mu(G, r_mesh, k_nr, z_mesh, k_nz, alpha_n):
@@ -1028,9 +1027,8 @@ class Field2D(object):
         #fig = plt.figure(figsize=(16,12)
         
         
-    def plot(self, filename=None):
-        """
-        Plot the field.
+    def plot(self):
+        """Plot the field.
         """
         
         if self.mu is None:
@@ -1065,9 +1063,6 @@ class Field2D(object):
         
         fig.tight_layout()
         fig.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.05)
-        if filename:
-            fig.savefig(filename)
-            fig.savefig(filename, bbox_inches='tight')
-        else:
-            return fig
+
+        return fig
             
