@@ -1,27 +1,53 @@
 { buildPythonPackage
-, pytest
-, numpy
-, scipy
+
+, flit-core
+
 , matplotlib
-, pandas
 , numexpr
-, traitlets
-, numtraits
+, numpy
+, pandas
+, scipy
+
+, black
+, pylint
+, pytest
+, pytestCheckHook
 }:
 
 buildPythonPackage rec {
-  name = "turbulence-${version}";
-  version = "0.1dev";
+  pname = "turbulence";
+  version = "dev";
+  format = "pyproject";
 
   src = ./.;
 
-  buildInputs = [ pytest ];
-  propagatedBuildInputs = [ numpy scipy matplotlib pandas numexpr traitlets numtraits ];
+  nativeBuildInputs = [
+    flit-core
+  ];
 
-  meta = {
-    description = "Acoustics module for Python";
-  };
+  propagatedBuildInputs = [
+    matplotlib
+    numexpr
+    numpy
+    pandas
+    scipy
+  ];
 
-  doCheck = false;
+  checkInputs = [
+    black
+    pylint
+    pytest
+    pytestCheckHook
+  ];
+
+  preCheck = ''
+    echo "Checking formatting with black..."
+    black --check turbulence tests
+    # Lots of classes were not fully implemented
+    # echo "Static analysis with pylint..."
+    # pylint -E turbulence
+  '';
+
+  passthru.allInputs = nativeBuildInputs ++ propagatedBuildInputs ++ checkInputs;
 }
 
